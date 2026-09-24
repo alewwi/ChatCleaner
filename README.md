@@ -38,11 +38,29 @@
 
 ## 🛠️ Установка
 
-1. Скопируйте папку `ChatCleaner` в `SillyTavern/data/default-user/extensions/`.
-2. Перезапустите SillyTavern и обновите страницу.
-3. Откройте панель **Extensions** (🧩) и найдите раздел **«Очистка чата»**.
+1. Откройте SillyTavern и нажмите кнопку **Extensions** (🧩).
+2. Выберите **Install extension**.
+3. Вставьте ссылку:
 
-> 💡 **Совет:** если расширение лежит в репозитории на GitHub, его можно поставить через **Extensions → Install Extension**, вставив ссылку на репозиторий.
+   ```
+   https://github.com/alewwi/ChatCleaner
+   ```
+
+4. Нажмите **Install** (у администратора кнопка называется **Install just for me**) и обновите страницу.
+5. В панели **Extensions** появится раздел **«Очистка чата»**.
+
+<details>
+<summary><b>Установка вручную</b></summary>
+
+1. Скачайте репозиторий: **Code → Download ZIP**.
+2. Распакуйте архив в `SillyTavern/data/default-user/extensions/` и переименуйте папку в `ChatCleaner`.
+3. Перезапустите SillyTavern и обновите страницу.
+
+> **⚠️ Внимание:** папка должна называться именно `ChatCleaner`, иначе панель настроек не загрузится.
+
+</details>
+
+> 💡 **Совет:** когда выходит новая версия, в **Extensions → Manage extensions** рядом с Chat Cleaner появляется кнопка **Update available**.
 
 ---
 
