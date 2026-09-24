@@ -60,8 +60,6 @@
 
 </details>
 
-> 💡 **Совет:** когда выходит новая версия, в **Extensions → Manage extensions** рядом с Chat Cleaner появляется кнопка **Update available**.
-
 ---
 
 ## 🚀 Быстрый старт
