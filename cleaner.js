@@ -28,48 +28,87 @@ const INLINE_TAGS = ['span', 'b', 'strong', 'i', 'em', 'u', 's', 'strike', 'del'
     'sub', 'sup', 'mark', 'abbr', 'cite', 'q', 'code', 'kbd', 'samp', 'var', 'button', 'label', 'tt', 'dfn', 'bdi',
     'bdo', 'ruby', 'rt', 'rp', 'output', 'meter', 'progress'];
 
-// Конец имени тега: `<b>` не должен цеплять `<body>`, а `<head>` — `<header>`.
-const NAME_END = '(?![\\w:.-])';
+// Имя тега может быть и на кириллице, поэтому буквы берём из Unicode, а не \w.
+const NAME_CHAR = '[\\p{L}\\p{N}_:.-]';
+// Конец имени тега: `<b>` не должен цеплять `<body>`, а `<мысли>` — `<мыслитель>`.
+const NAME_END = `(?!${NAME_CHAR})`;
+// Атрибуты тега. Значение в кавычках может содержать `>` (например, `onclick="a => b"`), но не `<`:
+// так кавычка без пары не утащит за собой текст до следующего тега. Альтернативы начинаются
+// с разных символов, поэтому выражение не уходит в экспоненциальный перебор.
+const ATTRS = `(?:[^<>"']|"[^"<]*"|'[^'<]*')*`;
 const tagAlt = list => list.join('|');
+const anyTag = names => new RegExp(`<\\/?(?:${names})${NAME_END}${ATTRS}>`, 'giu');
 
 const RE_DOCTYPE = /<!DOCTYPE[^>]*>/gi;
-const RE_CODE_ELEMENT = new RegExp(`<(${tagAlt(CODE_ELEMENTS)})${NAME_END}[^>]*>[\\s\\S]*?<\\/\\1\\s*>`, 'gi');
-const RE_CODE_LEFTOVER = new RegExp(`<\\/?(?:${tagAlt(CODE_ELEMENTS)})${NAME_END}[^>]*>`, 'gi');
-const RE_VOID = new RegExp(`<\\/?(?:${tagAlt(VOID_TAGS)})${NAME_END}[^>]*>`, 'gi');
-const RE_BREAK = new RegExp(`<\\/?(?:br|hr)${NAME_END}[^>]*>`, 'gi');
-const RE_BLOCK = new RegExp(`<\\/?(?:${tagAlt(BLOCK_TAGS)})${NAME_END}[^>]*>`, 'gi');
-const RE_INLINE = new RegExp(`<\\/?(?:${tagAlt(INLINE_TAGS)})${NAME_END}[^>]*>`, 'gi');
+const RE_CODE_ELEMENT = new RegExp(`<(${tagAlt(CODE_ELEMENTS)})${NAME_END}${ATTRS}>[\\s\\S]*?<\\/\\1\\s*>`, 'giu');
+const RE_CODE_LEFTOVER = anyTag(tagAlt(CODE_ELEMENTS));
+const RE_VOID = anyTag(tagAlt(VOID_TAGS));
+const RE_BREAK = anyTag('br|hr');
+const RE_BLOCK = anyTag(tagAlt(BLOCK_TAGS));
+const RE_INLINE = anyTag(tagAlt(INLINE_TAGS));
 const RE_FENCE = /```[^\n`]*\n[\s\S]*?```/g;
+const RE_FENCE_SPLIT = /(```[^\n`]*\n[\s\S]*?```)/;
+// Отступ строки, кроме пунктов списка: их отступ задаёт вложенность.
+// [ \t] в проверке заставляет снять отступ целиком, а не оставить пробел перед маркером списка.
+const RE_INDENT = /^[ \t]+(?![ \t]|[-*+][ \t]|\d+[.)][ \t])/gm;
 
 // Заглушки для защищённых блоков: символы из Private Use Area в тексте чата не встречаются.
-const PH_OPEN = '';
-const PH_CLOSE = '';
-const RE_PLACEHOLDER = /(\d+)/g;
+const PH_OPEN = String.fromCharCode(0xE000);
+const PH_CLOSE = String.fromCharCode(0xE001);
+const RE_PLACEHOLDER = new RegExp(`${PH_OPEN}(\\d+)${PH_CLOSE}`, 'g');
 
 const escapeRegex = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+/** Применяет fn к тексту вне блоков ```код```. Сами блоки остаются как есть. */
+function outsideFences(text, fn) {
+    if (!text.includes('```')) return fn(text);
+    return text.split(RE_FENCE_SPLIT).map((part, i) => (i % 2 ? part : fn(part))).join('');
+}
+
 /** Убирает переносы и пробелы, оставшиеся после вырезания. */
 function tidy(s) {
-    return s.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+    return outsideFences(s, part => part.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n')).trim();
+}
+
+/** Снимает теги с куска текста. Совпадения, внутри которых спрятан защищённый блок, не трогает. */
+function stripSegment(text, counter) {
+    const replaceWith = value => match => {
+        if (match.includes(PH_OPEN)) return match;
+        counter.n++;
+        return value;
+    };
+    const drop = replaceWith('');
+    const newline = replaceWith('\n');
+    const s = text.replace(RE_DOCTYPE, drop).replace(RE_CODE_ELEMENT, drop).replace(RE_CODE_LEFTOVER, drop)
+        .replace(RE_VOID, drop).replace(RE_BREAK, newline).replace(RE_BLOCK, newline).replace(RE_INLINE, drop);
+    if (s === text) return text;
+    // Отступы от вложенной вёрстки markdown принял бы за блок кода, поэтому снимаем их.
+    return s.replace(RE_INDENT, '');
 }
 
 /**
  * Снимает HTML-оформление, оставляя текст. Код (<style>, <script>, <html>, <svg>…) удаляется целиком.
  * @param {string} text
- * @param {{fences?: boolean}} options fences — удалять и блоки ```код```
+ * @param {{fences?: boolean}} options fences=true — удалить и блоки ```код```;
+ *        fences=false — блоки ```код``` не трогать вообще: это код, показанный читателю, а не вёрстка.
  * @param {object|null} stats сюда добавляется число снятых тегов
  */
 export function stripHtml(text, { fences = false } = {}, stats = null) {
-    let count = 0;
-    const drop = () => { count++; return ''; };
-    const newline = () => { count++; return '\n'; };
-    let s = text.replace(RE_DOCTYPE, drop).replace(RE_CODE_ELEMENT, drop).replace(RE_CODE_LEFTOVER, drop);
-    if (fences) s = s.replace(RE_FENCE, drop);
-    s = s.replace(RE_VOID, drop).replace(RE_BREAK, newline).replace(RE_BLOCK, newline).replace(RE_INLINE, drop);
-    if (!count) return text;
-    if (stats) stats.htmlTags += count;
-    // Отступы от вложенной вёрстки markdown принял бы за блок кода, поэтому снимаем их.
-    return tidy(s.replace(/^[ \t]+/gm, ''));
+    const counter = { n: 0 };
+    let s;
+    if (fences) {
+        s = text.replace(RE_FENCE, match => {
+            if (match.includes(PH_OPEN)) return match;
+            counter.n++;
+            return '';
+        });
+        s = stripSegment(s, counter);
+    } else {
+        s = outsideFences(text, part => stripSegment(part, counter));
+    }
+    if (!counter.n) return text;
+    if (stats) stats.htmlTags += counter.n;
+    return tidy(s);
 }
 
 /**
@@ -81,14 +120,14 @@ export function parseMarker(raw) {
     if (!str) return null;
     let m;
     if (str.startsWith('<')) {
-        m = str.match(/^<\s*\/?\s*([A-Za-z][\w:.-]*)/);
+        m = str.match(/^<\s*\/?\s*([\p{L}_][\p{L}\p{N}_:.-]*)/u);
         return m ? { kind: 'tag', name: m[1], label: `<${m[1]}>` } : null;
     }
     if (str.startsWith('[')) {
         m = str.match(/^\[\s*\/?\s*([^\]|:]+?)\s*(?:[\]|:]|$)/);
         return m ? { kind: 'bracket', name: m[1], label: `[${m[1]}]` } : null;
     }
-    if (/^[A-Za-z][\w:.-]*$/.test(str)) return { kind: 'any', name: str, label: str };
+    if (/^[\p{L}_][\p{L}\p{N}_:.-]*$/u.test(str)) return { kind: 'any', name: str, label: str };
     return { kind: 'bracket', name: str, label: `[${str}]` };
 }
 
@@ -98,7 +137,7 @@ export function parseMarkerList(text) {
 
 /** `<тег>…</тег>` с учётом вложенности, плюс самозакрывающиеся `<тег/>`. */
 function collectTagRanges(text, name, withOrphans, out) {
-    const re = new RegExp(`<(\\/?)${escapeRegex(name)}${NAME_END}[^>]*>`, 'gi');
+    const re = new RegExp(`<(\\/?)${escapeRegex(name)}${NAME_END}${ATTRS}>`, 'giu');
     const stack = [];
     for (const m of text.matchAll(re)) {
         const start = m.index;
@@ -116,16 +155,19 @@ function collectTagRanges(text, name, withOrphans, out) {
     if (withOrphans) out.push(...stack);
 }
 
-/** Конец блока `[…]` с учётом вложенных скобок, или -1. */
-function matchBracket(text, start) {
-    let depth = 0;
-    const limit = Math.min(text.length, start + 200000);
-    for (let i = start; i < limit; i++) {
-        const c = text[i];
-        if (c === '[') depth++;
-        else if (c === ']' && --depth === 0) return i + 1;
+/**
+ * Пары квадратных скобок за один проход: позиция `[` → позиция сразу после парной `]`.
+ * Поиск пары от каждой `[` по отдельности на тексте с незакрытыми скобками занимал бы квадратичное время.
+ */
+function bracketPairs(text) {
+    const pairs = new Map();
+    const stack = [];
+    for (let i = 0; i < text.length; i++) {
+        const c = text.charCodeAt(i);
+        if (c === 91) stack.push(i);
+        else if (c === 93 && stack.length) pairs.set(stack.pop(), i + 1);
     }
-    return -1;
+    return pairs;
 }
 
 /**
@@ -134,8 +176,9 @@ function matchBracket(text, start) {
  * Одиночная `[ИМЯ]` без `[/ИМЯ]` не трогается: чаще всего это упоминание в тексте.
  */
 function collectBracketRanges(text, name, out) {
-    const re = new RegExp(`\\[(\\/?)${escapeRegex(name)}(\\]|[:|])`, 'gi');
+    const re = new RegExp(`\\[(\\/?)${escapeRegex(name)}(\\]|[:|])`, 'giu');
     let openStart = -1;
+    let pairs = null;
     for (const m of text.matchAll(re)) {
         const start = m.index;
         if (m[2] === ']') {
@@ -146,8 +189,9 @@ function collectBracketRanges(text, name, out) {
                 openStart = -1;
             }
         } else if (!m[1]) {
-            const end = matchBracket(text, start);
-            if (end > 0) out.push([start, end]);
+            pairs ??= bracketPairs(text);
+            const end = pairs.get(start);
+            if (end) out.push([start, end]);
         }
     }
 }
@@ -183,6 +227,20 @@ function replaceRanges(text, ranges, fn) {
     return result + text.slice(pos);
 }
 
+/**
+ * Возвращает защищённые блоки на место. Блок может лежать внутри другого защищённого блока,
+ * поэтому заглушки раскрываются рекурсивно. Если хоть одна заглушка потерялась, возвращает null.
+ */
+function restoreProtected(text, vault) {
+    const used = new Set();
+    const restore = str => str.replace(RE_PLACEHOLDER, (_, i) => {
+        used.add(i);
+        return restore(vault[Number(i)] ?? '');
+    });
+    const result = restore(text);
+    return used.size === vault.length ? result : null;
+}
+
 const sameMarker = (a, b) => a.name.toLowerCase() === b.name.toLowerCase()
     && (a.kind === b.kind || a.kind === 'any' || b.kind === 'any');
 
@@ -215,7 +273,7 @@ export function compileSettings(settings) {
 }
 
 export function newStats() {
-    return { htmlTags: 0, blocks: {} };
+    return { htmlTags: 0, blocks: {}, protectedSkipped: 0 };
 }
 
 /** Чистит одну строку по правилам. Защищённые блоки не трогаются ни при каком правиле. */
@@ -235,8 +293,14 @@ export function cleanText(text, cfg, stats) {
         let ranges = findRanges(s, rule, { withOrphans: whole });
         if (whole) ranges = ranges.filter(([a, b]) => !s.slice(a, b).includes(PH_OPEN));
         if (!ranges.length) continue;
-        s = replaceRanges(s, ranges, slice => (whole ? '' : stripHtml(slice, { fences: true }, stats)));
-        stats.blocks[rule.label] = (stats.blocks[rule.label] || 0) + ranges.length;
+        let hits = 0;
+        s = replaceRanges(s, ranges, slice => {
+            const cleaned = whole ? '' : stripHtml(slice, { fences: true }, stats);
+            if (cleaned !== slice) hits++;
+            return cleaned;
+        });
+        if (!hits) continue;
+        stats.blocks[rule.label] = (stats.blocks[rule.label] || 0) + hits;
         changed = true;
     }
     if (cfg.stripHtml) {
@@ -248,7 +312,14 @@ export function cleanText(text, cfg, stats) {
     }
     if (!changed) return text;
     s = tidy(s);
-    return vault.length ? s.replace(RE_PLACEHOLDER, (_, i) => vault[Number(i)]) : s;
+    if (!vault.length) return s;
+    const restored = restoreProtected(s, vault);
+    if (restored === null) {
+        // Страховка: если защищённый блок всё же задело, строку не меняем вовсе.
+        stats.protectedSkipped++;
+        return text;
+    }
+    return restored;
 }
 
 function cleanExtra(extra, cfg, stats) {
@@ -282,7 +353,13 @@ function pruneSwipes(msg, stats) {
     }
     const next = { ...msg, swipes: [swipes[idx]], swipe_id: 0 };
     if (Array.isArray(msg.swipe_info)) {
-        next.swipe_info = idx < msg.swipe_info.length ? [msg.swipe_info[idx]] : [];
+        // Запись в том же виде, в каком SillyTavern сам достраивает недостающую при загрузке.
+        next.swipe_info = [msg.swipe_info[idx] ?? {
+            send_date: msg.send_date,
+            gen_started: msg.gen_started,
+            gen_finished: msg.gen_finished,
+            extra: {},
+        }];
     }
     stats.swipes += swipes.length - 1;
     return next;
@@ -313,6 +390,7 @@ function cleanMessageText(msg, cfg, stats) {
             return { ...info, extra };
         });
     }
+    stats.protectedSkipped += shadow.protectedSkipped;
     return changed ? next : msg;
 }
 
