@@ -1,0 +1,90 @@
+.chat-cleaner-settings .inline-drawer-content {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.chat-cleaner-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.chat-cleaner-actions .menu_button {
+    flex: 1 1 auto;
+}
+
+.chat-cleaner-settings .menu_button i {
+    margin-right: 6px;
+}
+
+#chat_cleaner_add_rule {
+    align-self: flex-start;
+    width: fit-content;
+}
+
+.chat-cleaner-danger {
+    border-color: var(--warning, #c0392b);
+}
+
+.chat-cleaner-hint {
+    opacity: 0.75;
+    margin-bottom: 6px;
+}
+
+.chat-cleaner-rules {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 4px 0;
+}
+
+/* Метка и корзина в первой строке, режим под меткой: панель расширений узкая. */
+.chat-cleaner-rule {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 4px 6px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--SmartThemeBorderColor);
+}
+
+.chat-cleaner-rule .chat-cleaner-enabled {
+    grid-area: 1 / 1;
+}
+
+.chat-cleaner-rule .chat-cleaner-marker {
+    grid-area: 1 / 2;
+    margin: 0;
+}
+
+.chat-cleaner-rule .chat-cleaner-mode {
+    grid-area: 2 / 2;
+    margin: 0;
+}
+
+.chat-cleaner-rule .menu_button {
+    grid-area: 1 / 3;
+    margin: 0;
+}
+
+.chat-cleaner-report table {
+    border-collapse: collapse;
+    margin: 8px auto;
+    text-align: left;
+}
+
+.chat-cleaner-report td {
+    padding: 2px 10px;
+    border-bottom: 1px solid var(--SmartThemeBorderColor);
+}
+
+.chat-cleaner-report td:last-child {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.chat-cleaner-report .chat-cleaner-warn {
+    color: var(--warning, #e67e22);
+}

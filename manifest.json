@@ -1,0 +1,12 @@
+{
+    "display_name": "Chat Cleaner — очистка чата",
+    "loading_order": 100,
+    "requires": [],
+    "optional": [],
+    "js": "index.js",
+    "css": "style.css",
+    "author": "Chat Cleaner",
+    "version": "1.0.0",
+    "auto_update": false,
+    "description": "Удаляет лишние свайпы и служебные блоки (HUD, HTML-код и любые заданные вами) из старых сообщений, чтобы большой чат не тормозил. Перед очисткой делает бэкап."
+}

@@ -1,0 +1,73 @@
+<div class="chat-cleaner-settings">
+    <div class="inline-drawer">
+        <div class="inline-drawer-toggle inline-drawer-header">
+            <b>Очистка чата</b>
+            <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
+        </div>
+        <div class="inline-drawer-content">
+            <div class="chat-cleaner-actions">
+                <div id="chat_cleaner_analyze" class="menu_button" title="Посчитать, что будет удалено. Чат не меняется.">
+                    <i class="fa-solid fa-magnifying-glass-chart"></i> Анализ
+                </div>
+                <div id="chat_cleaner_run" class="menu_button chat-cleaner-danger">
+                    <i class="fa-solid fa-broom"></i> Очистить текущий чат
+                </div>
+            </div>
+
+            <label for="chat_cleaner_keep_last">Не трогать последних сообщений</label>
+            <input id="chat_cleaner_keep_last" class="text_pole" type="number" min="0" step="1">
+            <small class="chat-cleaner-hint">В этих сообщениях блоки и HTML остаются как есть.</small>
+
+            <label class="checkbox_label" for="chat_cleaner_swipes">
+                <input id="chat_cleaner_swipes" type="checkbox">
+                <span>Удалять лишние свайпы</span>
+            </label>
+            <small class="chat-cleaner-hint">Остаётся тот свайп, что сейчас выбран. Свайпы последнего сообщения не трогаются.</small>
+
+            <hr class="sysHR">
+
+            <label for="chat_cleaner_backup_mode">Бэкап перед очисткой</label>
+            <select id="chat_cleaner_backup_mode" class="text_pole">
+                <option value="auto">Делать всегда</option>
+                <option value="ask">Спрашивать каждый раз</option>
+                <option value="off">Не делать</option>
+            </select>
+
+            <label for="chat_cleaner_backup_target">Куда сохранять бэкап</label>
+            <select id="chat_cleaner_backup_target" class="text_pole">
+                <option value="chat">Отдельным чатом в списке чатов персонажа</option>
+                <option value="download">Скачать файлом .jsonl</option>
+            </select>
+            <small class="chat-cleaner-hint">Бэкап группового чата всегда скачивается файлом.</small>
+
+            <hr class="sysHR">
+
+            <b>Блоки для очистки</b>
+            <small class="chat-cleaner-hint">
+                Впишите метку блока: <code>&lt;comics&gt;</code>, <code>[TWEETS]</code>, <code>[snow hide]</code>.
+                <code>&lt;тег&gt;</code> ищется вместе с <code>&lt;/тег&gt;</code>.
+                <code>[МЕТКА]</code> ищется вместе с <code>[/МЕТКА]</code>, а <code>[МЕТКА: …]</code> — до закрывающей скобки.<br>
+                <b>Весь блок</b> — удаляется вместе с содержимым.
+                <b>Только код</b> — внутри блока убираются HTML, CSS, скрипты и <code>```код```</code>, текст остаётся.
+            </small>
+            <div id="chat_cleaner_rules" class="chat-cleaner-rules"></div>
+            <div id="chat_cleaner_add_rule" class="menu_button">
+                <i class="fa-solid fa-plus"></i> Добавить блок
+            </div>
+
+            <label class="checkbox_label" for="chat_cleaner_strip_html">
+                <input id="chat_cleaner_strip_html" type="checkbox">
+                <span>Снимать HTML-оформление со всего остального текста</span>
+            </label>
+            <small class="chat-cleaner-hint">
+                Теги <code>div</code>, <code>span</code>, <code>font</code> и подобные снимаются, текст внутри остаётся.
+                <code>&lt;style&gt;</code>, <code>&lt;script&gt;</code> и встроенные HTML-страницы удаляются целиком.
+                Сюжетные теги вроде <code>&lt;time&gt;</code> и <code>&lt;prologue&gt;</code> не трогаются.
+            </small>
+
+            <label for="chat_cleaner_protected">Защищённые блоки</label>
+            <input id="chat_cleaner_protected" class="text_pole" type="text" placeholder="[HUD_SUMMARY], <plan>">
+            <small class="chat-cleaner-hint">Через запятую. Эти блоки не трогает ни одно правило.</small>
+        </div>
+    </div>
+</div>
