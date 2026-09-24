@@ -33,7 +33,7 @@ function renderRules() {
         const row = $(`
             <div class="chat-cleaner-rule">
                 <input type="checkbox" class="chat-cleaner-enabled" title="Правило включено">
-                <input type="text" class="text_pole chat-cleaner-marker" placeholder="<comics> или [TWEETS]">
+                <input type="text" class="text_pole chat-cleaner-marker" placeholder="<тег> или [МЕТКА]">
                 <select class="text_pole chat-cleaner-mode">
                     <option value="whole">Весь блок</option>
                     <option value="code">Только код</option>

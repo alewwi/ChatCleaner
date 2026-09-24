@@ -10,12 +10,8 @@ export const DEFAULT_SETTINGS = Object.freeze({
     backupMode: 'auto',        // auto | ask | off
     backupTarget: 'chat',      // chat | download
     stripHtml: true,
-    protectedBlocks: '[HUD_SUMMARY]',
-    rules: [
-        { marker: '[HUD]', mode: 'whole', enabled: true },
-        { marker: '<snow>', mode: 'whole', enabled: true },
-        { marker: '<comics>', mode: 'whole', enabled: true },
-    ],
+    protectedBlocks: '',
+    rules: [],
 });
 
 // Элементы, которые вырезаются вместе с содержимым: внутри них только код.
@@ -77,7 +73,7 @@ export function stripHtml(text, { fences = false } = {}, stats = null) {
 }
 
 /**
- * Разбирает то, что ввёл пользователь: `<comics>`, `[TWEETS]`, `[snow hide]`, `comics`.
+ * Разбирает то, что ввёл пользователь: `<тег>`, `[МЕТКА]`, `[МЕТКА С ПРОБЕЛОМ]` или слово без скобок.
  * @returns {{kind: 'tag'|'bracket'|'any', name: string, label: string}|null}
  */
 export function parseMarker(raw) {

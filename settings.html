@@ -44,7 +44,7 @@
 
             <b>Блоки для очистки</b>
             <small class="chat-cleaner-hint">
-                Впишите метку блока: <code>&lt;comics&gt;</code>, <code>[TWEETS]</code>, <code>[snow hide]</code>.
+                Впишите метку блока в виде <code>&lt;тег&gt;</code> или <code>[МЕТКА]</code>.
                 <code>&lt;тег&gt;</code> ищется вместе с <code>&lt;/тег&gt;</code>.
                 <code>[МЕТКА]</code> ищется вместе с <code>[/МЕТКА]</code>, а <code>[МЕТКА: …]</code> — до закрывающей скобки.<br>
                 <b>Весь блок</b> — удаляется вместе с содержимым.
@@ -60,13 +60,13 @@
                 <span>Снимать HTML-оформление со всего остального текста</span>
             </label>
             <small class="chat-cleaner-hint">
-                Теги <code>div</code>, <code>span</code>, <code>font</code> и подобные снимаются, текст внутри остаётся.
-                <code>&lt;style&gt;</code>, <code>&lt;script&gt;</code> и встроенные HTML-страницы удаляются целиком.
-                Сюжетные теги вроде <code>&lt;time&gt;</code> и <code>&lt;prologue&gt;</code> не трогаются.
+                Стандартные HTML-теги оформления снимаются, текст внутри остаётся.
+                Стили, скрипты и встроенные HTML-страницы удаляются целиком.
+                Нестандартные теги не трогаются.
             </small>
 
             <label for="chat_cleaner_protected">Защищённые блоки</label>
-            <input id="chat_cleaner_protected" class="text_pole" type="text" placeholder="[HUD_SUMMARY], <plan>">
+            <input id="chat_cleaner_protected" class="text_pole" type="text" placeholder="[МЕТКА], <тег>">
             <small class="chat-cleaner-hint">Через запятую. Эти блоки не трогает ни одно правило.</small>
         </div>
     </div>
