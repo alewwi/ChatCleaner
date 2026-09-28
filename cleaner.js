@@ -112,13 +112,23 @@ export function stripHtml(text, { fences = false } = {}, stats = null) {
 }
 
 /**
- * Разбирает то, что ввёл пользователь: `<тег>`, `[МЕТКА]`, `[МЕТКА С ПРОБЕЛОМ]` или слово без скобок.
- * @returns {{kind: 'tag'|'bracket'|'any', name: string, label: string}|null}
+ * Разбирает то, что ввёл пользователь: `<тег>`, `[МЕТКА]`, `[МЕТКА С ПРОБЕЛОМ]`, `{{макрос}}`,
+ * `::БЛОК_START::` (или `::БЛОК_END::`, `::БЛОК::`) или слово без скобок.
+ * @returns {{kind: 'tag'|'bracket'|'macro'|'colon'|'any', name: string, label: string}|null}
  */
 export function parseMarker(raw) {
     const str = String(raw ?? '').trim();
     if (!str) return null;
     let m;
+    if (str.startsWith('{{')) {
+        m = str.match(/^\{\{\s*\/?\s*([^\s{}:|]+)/u);
+        return m ? { kind: 'macro', name: m[1], label: `{{${m[1]}}}` } : null;
+    }
+    // `::БЛОК_START::`, `::БЛОК_END::`, `::БЛОК::`, а также без двоеточий в начале: `БЛОК_START::`.
+    m = str.match(/^(?:::)?\s*(.+?)(?:_START|_END)?\s*(?:::)?$/iu);
+    if (str.startsWith('::') || /_(?:START|END)\s*::?$/iu.test(str)) {
+        return m?.[1] ? { kind: 'colon', name: m[1], label: `::${m[1]}_START::` } : null;
+    }
     if (str.startsWith('<')) {
         m = str.match(/^<\s*\/?\s*([\p{L}_][\p{L}\p{N}_:.-]*)/u);
         return m ? { kind: 'tag', name: m[1], label: `<${m[1]}>` } : null;
@@ -196,6 +206,64 @@ function collectBracketRanges(text, name, out) {
     }
 }
 
+/** Пары `{{` → позиция сразу после парной `}}`, за один проход, с учётом вложенных макросов. */
+function macroPairs(text) {
+    const pairs = new Map();
+    const stack = [];
+    for (let i = 0; i < text.length - 1; i++) {
+        if (text[i] === '{' && text[i + 1] === '{') {
+            stack.push(i);
+            i++;
+        } else if (text[i] === '}' && text[i + 1] === '}' && stack.length) {
+            pairs.set(stack.pop(), i + 2);
+            i++;
+        }
+    }
+    return pairs;
+}
+
+/**
+ * `{{ИМЯ…}}` — один макрос до парных `}}`, с вложенными макросами внутри.
+ * `{{ИМЯ …}}…{{/ИМЯ}}` — блочный макрос целиком, с учётом вложенности.
+ */
+function collectMacroRanges(text, name, withOrphans, out) {
+    if (!text.includes('{{')) return;
+    const re = new RegExp(`\\{\\{\\s*(\\/?)${escapeRegex(name)}(?=\\s|\\}\\}|::|:|\\|)`, 'giu');
+    const pairs = macroPairs(text);
+    const stack = [];
+    for (const m of text.matchAll(re)) {
+        const start = m.index;
+        const end = pairs.get(start);
+        if (!end) continue;
+        if (m[1]) {
+            if (stack.length) out.push([stack.pop()[0], end]);
+            else if (withOrphans) out.push([start, end]);
+        } else {
+            stack.push([start, end]);
+        }
+    }
+    // Открывающий макрос без {{/ИМЯ}} — обычный одиночный макрос.
+    out.push(...stack);
+}
+
+/**
+ * `::ИМЯ_START::…::ИМЯ_END::` — от начала до ближайшего конца.
+ * Начало без конца не трогается: иначе пришлось бы резать всё до конца сообщения.
+ */
+function collectColonRanges(text, name, out) {
+    if (!text.includes('::')) return;
+    const re = new RegExp(`::\\s*${escapeRegex(name)}_(START|END)\\s*::`, 'giu');
+    let openStart = -1;
+    for (const m of text.matchAll(re)) {
+        if (m[1].toUpperCase() === 'START') {
+            if (openStart < 0) openStart = m.index;
+        } else if (openStart >= 0) {
+            out.push([openStart, m.index + m[0].length]);
+            openStart = -1;
+        }
+    }
+}
+
 /** Оставляет только внешние диапазоны, без пересечений. */
 function outermost(ranges) {
     ranges.sort((a, b) => a[0] - b[0] || b[1] - a[1]);
@@ -212,8 +280,17 @@ function outermost(ranges) {
 
 export function findRanges(text, marker, { withOrphans = false } = {}) {
     const out = [];
-    if (marker.kind !== 'bracket') collectTagRanges(text, marker.name, withOrphans, out);
-    if (marker.kind !== 'tag') collectBracketRanges(text, marker.name, out);
+    switch (marker.kind) {
+        case 'macro':
+            collectMacroRanges(text, marker.name, withOrphans, out);
+            break;
+        case 'colon':
+            collectColonRanges(text, marker.name, out);
+            break;
+        default:
+            if (marker.kind !== 'bracket') collectTagRanges(text, marker.name, withOrphans, out);
+            if (marker.kind !== 'tag') collectBracketRanges(text, marker.name, out);
+    }
     return outermost(out);
 }
 
@@ -241,8 +318,24 @@ function restoreProtected(text, vault) {
     return used.size === vault.length ? result : null;
 }
 
+// Слово без скобок ищется как <тег> и как [МЕТКА], но не как макрос или ::БЛОК::.
+const PLAIN_KINDS = ['tag', 'bracket', 'any'];
 const sameMarker = (a, b) => a.name.toLowerCase() === b.name.toLowerCase()
-    && (a.kind === b.kind || a.kind === 'any' || b.kind === 'any');
+    && (a.kind === b.kind || ((a.kind === 'any' || b.kind === 'any') && PLAIN_KINDS.includes(a.kind) && PLAIN_KINDS.includes(b.kind)));
+
+/**
+ * Имя без повторов: `имя`, если оно свободно, иначе `имя (1)`, `имя (2)` и так далее.
+ * @param {string} base
+ * @param {Iterable<string>} taken занятые имена, без учёта регистра
+ */
+export function freeName(base, taken) {
+    const busy = new Set([...taken].map(name => String(name).toLowerCase()));
+    if (!busy.has(base.toLowerCase())) return base;
+    for (let n = 1; ; n++) {
+        const candidate = `${base} (${n})`;
+        if (!busy.has(candidate.toLowerCase())) return candidate;
+    }
+}
 
 /** Приводит настройки к рабочему виду. */
 export function compileSettings(settings) {

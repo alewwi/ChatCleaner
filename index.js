@@ -1,4 +1,4 @@
-import { cleanChat, DEFAULT_SETTINGS } from './cleaner.js';
+import { cleanChat, DEFAULT_SETTINGS, freeName } from './cleaner.js';
 
 const MODULE = 'chatCleaner';
 // Папку берём из адреса модуля: расширение работает под любым именем папки и при установке «для всех».
@@ -41,7 +41,7 @@ function renderRules() {
         const row = $(`
             <div class="chat-cleaner-rule">
                 <input type="checkbox" class="chat-cleaner-enabled" title="Правило включено">
-                <input type="text" class="text_pole chat-cleaner-marker" placeholder="<тег> или [МЕТКА]">
+                <input type="text" class="text_pole chat-cleaner-marker" placeholder="<тег>, [МЕТКА], {{макрос}}, ::БЛОК_START::">
                 <select class="text_pole chat-cleaner-mode">
                     <option value="whole">Весь блок</option>
                     <option value="code">Только код</option>
@@ -152,6 +152,29 @@ function downloadJsonl(name, data) {
     setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
+/** Сегодняшняя дата по местному времени: 2026-09-27. */
+function today() {
+    const d = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** Имена чатов персонажа без .jsonl. Без этого списка бэкап мог бы перезаписать прошлый. */
+async function characterChatNames(ctx, character) {
+    const response = await fetch('/api/characters/chats', {
+        method: 'POST',
+        headers: ctx.getRequestHeaders(),
+        body: JSON.stringify({ avatar_url: character.avatar }),
+    });
+    if (!response.ok) throw new Error(`не удалось получить список чатов (${response.status})`);
+    const list = await response.json();
+    if (!list || typeof list !== 'object' || list.error) throw new Error('не удалось получить список чатов');
+    return Object.values(list)
+        .map(chat => String(chat?.file_name ?? ''))
+        .filter(Boolean)
+        .map(fileName => fileName.replace(/\.jsonl$/i, ''));
+}
+
 /**
  * Копирует файл чата с диска. Перед этим сверяет файл с открытым чатом:
  * SillyTavern не сообщает об ошибках сохранения, и без сверки бэкап мог бы оказаться устаревшим.
@@ -179,12 +202,14 @@ async function makeBackup(ctx) {
         throw new Error('чат на диске отличается от открытого — похоже, он не сохранился');
     }
 
-    const name = `${chatId} - backup ${ctx.humanizedDateTime()}`;
+    const base = `${chatId} - backup ${today()}`;
     if (isGroup || settings.backupTarget === 'download') {
-        downloadJsonl(name, data);
-        return { where: `файл «${name}.jsonl»`, downloaded: true };
+        // Одинаковые имена при скачивании браузер нумерует сам.
+        downloadJsonl(base, data);
+        return { where: `файл «${base}.jsonl»`, downloaded: true };
     }
 
+    const name = freeName(base, await characterChatNames(ctx, character));
     const saved = await fetch('/api/chats/save', {
         method: 'POST',
         headers: ctx.getRequestHeaders(),

@@ -44,9 +44,12 @@
 
             <b>Блоки для очистки</b>
             <small class="chat-cleaner-hint">
-                Впишите метку блока в виде <code>&lt;тег&gt;</code> или <code>[МЕТКА]</code>.
+                Впишите метку блока в виде <code>&lt;тег&gt;</code>, <code>[МЕТКА]</code>, <code>&#123;&#123;макрос&#125;&#125;</code>
+                или <code>::БЛОК_START::</code>.
                 <code>&lt;тег&gt;</code> ищется вместе с <code>&lt;/тег&gt;</code>.
-                <code>[МЕТКА]</code> ищется вместе с <code>[/МЕТКА]</code>, а <code>[МЕТКА: …]</code> — до закрывающей скобки.<br>
+                <code>[МЕТКА]</code> ищется вместе с <code>[/МЕТКА]</code>, а <code>[МЕТКА: …]</code> — до закрывающей скобки.
+                <code>&#123;&#123;макрос&#125;&#125;</code> ищется с любыми параметрами до <code>&#125;&#125;</code>, а если есть <code>&#123;&#123;/макрос&#125;&#125;</code> — до него.
+                <code>::БЛОК_START::</code> ищется до <code>::БЛОК_END::</code>.<br>
                 <b>Весь блок</b> — удаляется вместе с содержимым.
                 <b>Только код</b> — внутри блока убираются HTML, CSS, скрипты и <code>```код```</code>, текст остаётся.
             </small>
@@ -66,7 +69,7 @@
             </small>
 
             <label for="chat_cleaner_protected">Защищённые блоки</label>
-            <input id="chat_cleaner_protected" class="text_pole" type="text" placeholder="[МЕТКА], <тег>">
+            <input id="chat_cleaner_protected" class="text_pole" type="text" placeholder="[МЕТКА], <тег>, &#123;&#123;макрос&#125;&#125;, ::БЛОК_START::">
             <small class="chat-cleaner-hint">Через запятую. Эти блоки не трогает ни одно правило.</small>
         </div>
     </div>
